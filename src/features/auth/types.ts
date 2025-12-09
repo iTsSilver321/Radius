@@ -15,7 +15,14 @@ export interface AuthState {
   isLoading: boolean;
   initialized: boolean;
   signIn: (email: string, password?: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string) => Promise<{ error: any; data: any }>;
+  signUp: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: any; data: any }>;
+  verifyOtp: (
+    email: string,
+    token: string,
+  ) => Promise<{ error: any; session: Session | null }>;
   resendOtp: (email: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;

@@ -38,6 +38,13 @@ module.exports = {
                     DEFAULT: "rgb(var(--card) / <alpha-value>)",
                     foreground: "rgb(var(--card-foreground) / <alpha-value>)",
                 },
+                // Radius 3.0 Neon Aurora Palette
+                midnight: "#020617", // slate-950
+                "neon-indigo": "#4338ca", // indigo-700
+                "neon-violet": "#7c3aed", // violet-600
+                "neon-teal": "#14b8a6", // teal-500
+                "glass-white": "rgba(255, 255, 255, 0.1)",
+                "glass-black": "rgba(0, 0, 0, 0.6)",
             },
             fontFamily: {
                 sans: ["Inter", "sans-serif"],
