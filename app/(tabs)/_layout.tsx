@@ -1,35 +1,45 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { TabBar } from "@/src/components/navigation/TabBar";
+import { Tabs } from "expo-router";
+import React from "react";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-    </Tabs>
-  );
+    return (
+        <Tabs
+            tabBar={(props) => <TabBar {...props} />}
+            screenOptions={{
+                headerShown: false,
+            }}
+        >
+            <Tabs.Screen
+                name="index"
+                options={{
+                    title: "Feed",
+                }}
+            />
+            <Tabs.Screen
+                name="map"
+                options={{
+                    title: "Map",
+                }}
+            />
+            <Tabs.Screen
+                name="sell"
+                options={{
+                    title: "Sell",
+                }}
+            />
+            <Tabs.Screen
+                name="inbox"
+                options={{
+                    title: "Inbox",
+                }}
+            />
+            <Tabs.Screen
+                name="profile"
+                options={{
+                    title: "Profile",
+                }}
+            />
+        </Tabs>
+    );
 }
