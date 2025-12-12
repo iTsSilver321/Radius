@@ -15,6 +15,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
+  Calendar,
+  ExternalLink,
   Flag,
   MapPin,
   MessageCircle,
@@ -217,7 +219,10 @@ export default function ItemDetailsScreen() {
         </View>
       </View>
 
-      <ScrollView className="flex-1 -mt-6 rounded-t-3xl bg-gray-50 px-6 pt-8 dark:bg-background">
+      <ScrollView
+        className="flex-1 -mt-6 rounded-t-3xl bg-gray-50 px-6 pt-8 dark:bg-background"
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
         {/* Seller Info */}
         <View className="flex-row items-center justify-between mb-8 pb-6 border-b border-gray-200 dark:border-white/10">
           <TouchableOpacity
@@ -254,6 +259,36 @@ export default function ItemDetailsScreen() {
             <ShieldCheck size={20} color="#16a34a" />
           </View>
         </View>
+
+        {/* Location */}
+        {item.location && (
+          <View className="p-5 border-t border-gray-100 dark:border-white/10">
+            <Text className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+              Location
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                router.push({
+                  pathname: "/(tabs)/map",
+                  params: {
+                    lat: item.location!.latitude,
+                    long: item.location!.longitude,
+                  },
+                });
+              }}
+              className="bg-gray-100 dark:bg-white/10 rounded-2xl h-40 items-center justify-center overflow-hidden relative"
+            >
+              {/* Placeholder Map Visual */}
+              <MapPin size={32} color="#3b82f6" />
+              <Text className="text-blue-500 font-bold mt-2">View on Map</Text>
+
+              {/* Pointer hint */}
+              <View className="absolute top-2 right-2 bg-white/20 p-1 rounded-full">
+                <ExternalLink size={16} color="white" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Description */}
         <Text className="text-gray-900 font-bold text-xl mb-3 dark:text-white">

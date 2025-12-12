@@ -1,10 +1,10 @@
 import { GlassCard } from "@/src/components/ui/GlassCard"; // Keeping this if it exists, otherwise will remove
 import { GlassView } from "@/components/ui/GlassView";
 import { useAuth } from "@/src/features/auth/store";
-import { FeedFilters, fetchItems } from "@/src/features/feed/api";
+import { fetchItems } from "@/src/features/feed/api";
 import { FeedItem } from "@/src/features/feed/components/FeedItem";
 import { FilterModal } from "@/src/features/feed/components/FilterModal";
-import { Item } from "@/src/features/feed/types";
+import { FeedFilters, Item } from "@/src/features/feed/types";
 import { useLocation } from "@/src/features/location/hooks/useLocation";
 import { useNotificationStore } from "@/src/features/notifications/store";
 import { FlashList } from "@shopify/flash-list";
@@ -31,7 +31,12 @@ export default function FeedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
-  const { address, errorMsg, loading: locationLoading } = useLocation();
+  const {
+    location,
+    address,
+    errorMsg,
+    loading: locationLoading,
+  } = useLocation();
   const { unreadCount, fetchNotifications } = useNotificationStore();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +51,12 @@ export default function FeedScreen() {
       const data = await fetchItems({
         ...filters,
         searchQuery: debouncedSearchQuery,
+        userLocation: location
+          ? {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            }
+          : undefined,
       });
       setItems(data);
     } catch (error) {
@@ -59,7 +70,7 @@ export default function FeedScreen() {
   useEffect(() => {
     setLoading(true);
     loadItems();
-  }, [debouncedSearchQuery, filters]);
+  }, [debouncedSearchQuery, filters, location]); // Re-fetch if location changes and we might be sorting by distance
 
   useFocusEffect(
     useCallback(() => {

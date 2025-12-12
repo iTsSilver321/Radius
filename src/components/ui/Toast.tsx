@@ -5,19 +5,26 @@ import { CheckCircle, Info, XCircle } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "@/components/ui/GlassView";
 import { useUIStore } from "@/src/features/ui/store";
+import { useHaptics } from "@/src/hooks/useHaptics";
 
 export const Toast = () => {
   const { visible, message, type, hideToast } = useUIStore();
   const insets = useSafeAreaInsets();
+  const { success, error, warning } = useHaptics();
 
   useEffect(() => {
     if (visible) {
+      // Trigger haptic based on type
+      if (type === "success") success();
+      else if (type === "error") error();
+      else warning();
+
       const timer = setTimeout(() => {
         hideToast();
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [visible, hideToast]);
+  }, [visible, hideToast, type, success, error, warning]);
 
   if (!visible) return null;
 

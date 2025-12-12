@@ -19,24 +19,6 @@ export function GlassView({
   children,
   ...props
 }: GlassViewProps) {
-  if (Platform.OS === "android") {
-    return (
-      <View
-        style={[
-          {
-            backgroundColor: "rgba(2, 6, 23, 0.8)", // Midnight with opacity
-            borderColor: "rgba(255, 255, 255, 0.1)",
-            borderWidth: 1,
-          },
-          style,
-        ]}
-        {...props}
-      >
-        {children}
-      </View>
-    );
-  }
-
   return (
     <BlurView
       intensity={intensity}
@@ -47,7 +29,9 @@ export function GlassView({
           borderColor: "rgba(255, 255, 255, 0.1)", // glass-white
           borderWidth: 1,
           backgroundColor:
-            Platform.OS === "ios" ? "rgba(2, 6, 23, 0.6)" : undefined, // slight tint for iOS
+            Platform.OS === "ios"
+              ? "rgba(2, 6, 23, 0.6)"
+              : "rgba(2, 6, 23, 0.4)", // Slight tint
         },
         style,
       ]}

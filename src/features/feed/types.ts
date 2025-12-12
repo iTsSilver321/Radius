@@ -1,3 +1,20 @@
+export interface FeedFilters {
+  searchQuery?: string;
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: "newest" | "price_asc" | "price_desc" | "closest";
+  userLocation?: {
+    latitude: number;
+    longitude: number;
+  } | null;
+  radius?: number; // in kilometers
+  mapBounds?: {
+    northeast: { latitude: number; longitude: number };
+    southwest: { latitude: number; longitude: number };
+  } | null;
+}
+
 export interface Item {
   id: string;
   owner_id: string;

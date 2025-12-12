@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Text, TouchableOpacity, TouchableOpacityProps } from "react-native";
 import { cn } from "@/src/lib/utils";
+import { useHaptics } from "@/src/hooks/useHaptics";
 
 interface ButtonProps extends TouchableOpacityProps {
   variant?: "primary" | "secondary" | "glass" | "outline" | "ghost";
@@ -16,10 +17,17 @@ export function Button({
   className,
   textClassName,
   children,
+  onPressIn,
   ...props
 }: ButtonProps) {
+  const { light } = useHaptics();
   const baseStyles =
     "flex-row items-center justify-center rounded-xl active:opacity-80";
+
+  const handlePressIn = (e: any) => {
+    light();
+    onPressIn?.(e);
+  };
 
   // Size variants
   const sizeStyles = {
@@ -42,6 +50,7 @@ export function Button({
     return (
       <TouchableOpacity
         {...props}
+        onPressIn={handlePressIn}
         className={cn(baseStyles, sizeStyles[size], className)}
       >
         <LinearGradient
@@ -72,6 +81,7 @@ export function Button({
     return (
       <TouchableOpacity
         {...props}
+        onPressIn={handlePressIn}
         className={cn(
           baseStyles,
           sizeStyles[size],
@@ -118,6 +128,7 @@ export function Button({
         variantStyles[variant],
         className,
       )}
+      onPressIn={handlePressIn}
       {...props}
     >
       <Text

@@ -9,6 +9,7 @@ import {
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { GlassView } from "@/components/ui/GlassView";
 import { AlertTriangle, CheckCircle } from "lucide-react-native";
+import { useHaptics } from "@/src/hooks/useHaptics";
 
 interface ConfirmationModalProps {
   visible: boolean;
@@ -31,6 +32,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onCancel,
   variant = "default",
 }) => {
+  const { medium } = useHaptics();
+
+  React.useEffect(() => {
+    if (visible) {
+      medium();
+    }
+  }, [visible, medium]);
+
   return (
     <Modal
       visible={visible}
