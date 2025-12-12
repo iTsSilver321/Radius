@@ -50,11 +50,26 @@ export default function RootLayout() {
     if (!initialized || !navigationState?.key || !fontsLoaded) return;
 
     const inAuthGroup = segments[0] === "auth";
+    const inOnboarding = segments[0] === "onboarding";
 
-    if (session && inAuthGroup) {
-      // Use setTimeout to avoid "Attempted to navigate before mounting" error
-      setTimeout(() => router.replace("/(tabs)"), 0);
+    if (session) {
+      // If logged in, ensure they have seen onboarding
+      if (!inOnboarding) {
+        import("@react-native-async-storage/async-storage").then(
+          ({ default: AsyncStorage }) => {
+            AsyncStorage.getItem("hasCompletedOnboarding").then((value) => {
+              if (value !== "true") {
+                setTimeout(() => router.replace("/onboarding"), 0);
+              } else if (inAuthGroup) {
+                // If seen onboarding and trapped in auth (e.g. just logged in), go home
+                setTimeout(() => router.replace("/(tabs)"), 0);
+              }
+            });
+          },
+        );
+      }
     } else if (!session && !inAuthGroup) {
+      // Not logged in -> Go to login
       setTimeout(() => router.replace("/auth/login"), 0);
     }
   }, [
@@ -157,6 +172,14 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="auth" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="onboarding"
+            options={{
+              headerShown: false,
+              gestureEnabled: false,
+              animation: "fade",
+            }}
+          />
           <Stack.Screen
             name="item/edit/[id]"
             options={{ headerShown: false }}

@@ -1,8 +1,9 @@
 import { Button } from "@/src/components/ui/Button";
+import { Skeleton } from "@/src/components/ui/Skeleton";
 import { LikeButton } from "@/src/components/ui/LikeButton";
 import { useAuth } from "@/src/features/auth/store";
 import { createRoom } from "@/src/features/chat/api";
-import { fetchItemById } from "@/src/features/feed/api";
+import { fetchItemById, fetchSimilarItems } from "@/src/features/feed/api";
 import { Item } from "@/src/features/feed/types";
 import { useLocation } from "@/src/features/location/hooks/useLocation";
 import { calculateDistance } from "@/src/features/location/utils";
@@ -29,6 +30,7 @@ import {
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   ScrollView,
   Share,
   StatusBar,
@@ -37,6 +39,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { GlassCard } from "@/src/components/ui/GlassCard"; // Assuming we want GlassCard for similar items
 
 import { ConfirmationModal } from "@/src/components/ui/ConfirmationModal";
 import { useUIStore } from "@/src/features/ui/store";
@@ -47,6 +50,9 @@ export default function ItemDetailsScreen() {
   const router = useRouter();
   const { location: userLocation } = useLocation();
   const { showToast } = useUIStore();
+
+  // Similar Items State
+  const [similarItems, setSimilarItems] = useState<Item[]>([]);
 
   // Confirmation State
   const [confirmation, setConfirmation] = useState<{
@@ -94,6 +100,11 @@ export default function ItemDetailsScreen() {
     try {
       const data = await fetchItemById(id!);
       setItem(data);
+      // Fetch similar
+      if (data) {
+        const similar = await fetchSimilarItems(data.category, data.id);
+        setSimilarItems(similar);
+      }
     } catch (error) {
       console.error("Failed to load item:", error);
       showToast("Could not load item details.", "error");
@@ -138,8 +149,45 @@ export default function ItemDetailsScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50 dark:bg-background">
-        <ActivityIndicator size="large" color="#3b82f6" />
+      <View className="flex-1 bg-gray-50 dark:bg-background">
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar
+          barStyle="light-content"
+          translucent
+          backgroundColor="transparent"
+        />
+
+        {/* Hero Image Skeleton */}
+        <Skeleton width="100%" height={384} borderRadius={0} />
+
+        {/* Content Body */}
+        <View className="flex-1 -mt-6 rounded-t-3xl bg-gray-50 px-6 pt-8 dark:bg-background">
+          {/* User Row */}
+          <View className="flex-row items-center justify-between mb-8 pb-6 border-b border-gray-200 dark:border-white/10">
+            <View className="flex-row items-center">
+              <Skeleton width={48} height={48} variant="circle" />
+              <View className="ml-3 gap-2">
+                <Skeleton width={120} height={20} />
+                <Skeleton width={80} height={14} />
+              </View>
+            </View>
+            <Skeleton width={40} height={40} variant="circle" />
+          </View>
+
+          {/* Location */}
+          <View className="mb-6">
+            <Skeleton width={100} height={24} className="mb-3" />
+            <Skeleton width="100%" height={160} borderRadius={16} />
+          </View>
+
+          {/* Description */}
+          <Skeleton width={140} height={24} className="mb-3" />
+          <View className="gap-2">
+            <Skeleton width="100%" height={16} />
+            <Skeleton width="100%" height={16} />
+            <Skeleton width="80%" height={16} />
+          </View>
+        </View>
       </View>
     );
   }
@@ -221,7 +269,7 @@ export default function ItemDetailsScreen() {
 
       <ScrollView
         className="flex-1 -mt-6 rounded-t-3xl bg-gray-50 px-6 pt-8 dark:bg-background"
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 180 }}
       >
         {/* Seller Info */}
         <View className="flex-row items-center justify-between mb-8 pb-6 border-b border-gray-200 dark:border-white/10">
@@ -299,7 +347,7 @@ export default function ItemDetailsScreen() {
         </Text>
 
         {/* Safety Tips */}
-        <View className="bg-blue-50 p-4 rounded-2xl mb-24 dark:bg-blue-900/20">
+        <View className="bg-blue-50 p-4 rounded-2xl mb-8 dark:bg-blue-900/20">
           <Text className="text-blue-800 font-bold mb-1 dark:text-blue-300">
             Safety Tip
           </Text>
@@ -308,6 +356,55 @@ export default function ItemDetailsScreen() {
             the item.
           </Text>
         </View>
+
+        {/* Similar Items */}
+        {similarItems.length > 0 && (
+          <View className="mb-24">
+            <Text className="text-gray-900 font-bold text-xl mb-4 dark:text-white">
+              You Might Also Like
+            </Text>
+            <FlatList
+              data={similarItems}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ gap: 12, paddingRight: 20 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/item/[id]",
+                      params: { id: item.id },
+                    } as any)
+                  }
+                >
+                  <GlassCard
+                    intensity={20}
+                    className="w-40 rounded-2xl overflow-hidden p-0"
+                  >
+                    <Image
+                      source={{ uri: item.image_url }}
+                      style={{ width: "100%", height: 120 }}
+                      contentFit="cover"
+                    />
+                    <View className="p-3">
+                      <Text
+                        numberOfLines={1}
+                        className="text-white font-bold text-sm mb-1"
+                      >
+                        {item.title}
+                      </Text>
+                      <Text className="text-blue-400 font-bold text-sm">
+                        ${item.price}
+                      </Text>
+                    </View>
+                  </GlassCard>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
       </ScrollView>
 
       {/* Sticky Footer */}

@@ -5,16 +5,23 @@ import { fetchItems } from "@/src/features/feed/api";
 import { FeedItem } from "@/src/features/feed/components/FeedItem";
 import { FilterModal } from "@/src/features/feed/components/FilterModal";
 import { FeedFilters, Item } from "@/src/features/feed/types";
+import { FeedSkeleton } from "@/src/features/feed/components/FeedSkeleton";
 import { useLocation } from "@/src/features/location/hooks/useLocation";
 import { useNotificationStore } from "@/src/features/notifications/store";
 import { FlashList } from "@shopify/flash-list";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Bell, MapPin, Search, SlidersHorizontal } from "lucide-react-native";
+import {
+  Bell,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+  X,
+  Clock,
+  ArrowUpLeft,
+} from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Dimensions,
   Platform,
   RefreshControl,
   ScrollView,
@@ -25,6 +32,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDebounce } from "use-debounce";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const RECENT_SEARCHES_KEY = "radius_recent_searches";
 
 export default function FeedScreen() {
   const { user } = useAuth();
@@ -45,9 +55,52 @@ export default function FeedScreen() {
   const [debouncedSearchQuery] = useDebounce(searchQuery, 500);
   const [filters, setFilters] = useState<FeedFilters>({});
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  // Load Recent Searches
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
+        if (stored) setRecentSearches(JSON.parse(stored));
+      } catch (e) {
+        console.error("Failed to load recent searches", e);
+      }
+    })();
+  }, []);
+
+  const saveSearchTerm = async (term: string) => {
+    if (!term.trim()) return;
+    const cleanTerm = term.trim();
+    // Remove if exists, then add to top
+    const newSearches = [
+      cleanTerm,
+      ...recentSearches.filter((s) => s !== cleanTerm),
+    ].slice(0, 10); // Keep max 10
+    setRecentSearches(newSearches);
+    await AsyncStorage.setItem(
+      RECENT_SEARCHES_KEY,
+      JSON.stringify(newSearches),
+    );
+  };
+
+  const removeSearchTerm = async (term: string) => {
+    const newSearches = recentSearches.filter((s) => s !== term);
+    setRecentSearches(newSearches);
+    await AsyncStorage.setItem(
+      RECENT_SEARCHES_KEY,
+      JSON.stringify(newSearches),
+    );
+  };
 
   const loadItems = async () => {
     try {
+      // If performing a search, save it
+      if (debouncedSearchQuery) {
+        saveSearchTerm(debouncedSearchQuery);
+      }
+
       const data = await fetchItems({
         ...filters,
         searchQuery: debouncedSearchQuery,
@@ -86,15 +139,16 @@ export default function FeedScreen() {
     setRefreshing(false);
   };
 
+  // responsive layout calc
+  const headerHeight = insets.top + 160;
+
   return (
     <View className="flex-1 bg-white dark:bg-black">
       {/* Header Background Gradient (Optional) */}
 
       {/* Main Content */}
       {loading ? (
-        <View className="flex-1 items-center justify-center pt-32">
-          <ActivityIndicator size="large" color="#3b82f6" />
-        </View>
+        <FeedSkeleton />
       ) : (
         <FlashList
           data={items}
@@ -117,7 +171,7 @@ export default function FeedScreen() {
           estimatedItemSize={280}
           contentContainerStyle={{
             paddingHorizontal: 8,
-            paddingTop: 170, // Increased to avoid overlap
+            paddingTop: headerHeight, // Dynamic padding based on insets
             paddingBottom: 100,
           }}
           showsVerticalScrollIndicator={false}
@@ -136,8 +190,11 @@ export default function FeedScreen() {
         />
       )}
 
-      {/* Glass Header */}
-      <View className="absolute top-0 left-0 right-0 overflow-hidden pointer-events-box-none">
+      {/* Header Container */}
+      <View
+        className="absolute top-0 left-0 right-0 pointer-events-box-none z-50"
+        style={{ zIndex: 100, elevation: 50 }} // Force top on Android
+      >
         <GlassView
           intensity={Platform.OS === "ios" ? 80 : 100}
           tint="dark"
@@ -177,7 +234,7 @@ export default function FeedScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Search & Filter */}
+          {/* Search Bar */}
           <View className="px-5 flex-row gap-3 mb-4">
             <View className="flex-1 flex-row items-center bg-white/5 rounded-2xl px-4 py-3 border border-white/10 shadow-sm">
               <Search size={18} color="#94a3b8" />
@@ -186,8 +243,19 @@ export default function FeedScreen() {
                 placeholderTextColor="#94a3b8"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => {
+                  // Small delay to allow tap on recent items
+                  setTimeout(() => setIsSearchFocused(false), 200);
+                }}
                 className="flex-1 ml-3 text-base font-medium text-white"
               />
+              {/* Clear Button */}
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <X size={16} color="#94a3b8" />
+                </TouchableOpacity>
+              )}
             </View>
             <TouchableOpacity
               onPress={() => setIsFilterModalVisible(true)}
@@ -203,10 +271,71 @@ export default function FeedScreen() {
               />
             </TouchableOpacity>
           </View>
-
-          {/* Categories (Stories) */}
         </GlassView>
       </View>
+
+      {/* Real Recent Searches Overlay */}
+      {isSearchFocused &&
+        searchQuery.length === 0 &&
+        recentSearches.length > 0 && (
+          <View className="absolute inset-0 z-40">
+            <GlassView intensity={95} tint="dark" className="flex-1">
+              <View
+                style={{ paddingTop: headerHeight + 10 }}
+                className="flex-1 px-5"
+              >
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-gray-400 text-xs font-bold uppercase tracking-wider">
+                    Recent Searches
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setRecentSearches([]);
+                      AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
+                    }}
+                  >
+                    <Text className="text-blue-400 text-xs font-bold">
+                      Clear All
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView keyboardShouldPersistTaps="handled">
+                  {recentSearches.map((term) => (
+                    <View
+                      key={term}
+                      className="flex-row items-center justify-between py-3 border-b border-white/5"
+                    >
+                      <TouchableOpacity
+                        className="flex-1 flex-row items-center"
+                        onPress={() => {
+                          setSearchQuery(term);
+                          setIsSearchFocused(false);
+                        }}
+                      >
+                        <Clock size={16} color="#64748b" className="mr-3" />
+                        <Text className="text-white font-medium text-base ml-3">
+                          {term}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <View className="flex-row items-center gap-4">
+                        <TouchableOpacity onPress={() => setSearchQuery(term)}>
+                          <ArrowUpLeft size={16} color="#64748b" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => removeSearchTerm(term)}
+                        >
+                          <X size={16} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            </GlassView>
+          </View>
+        )}
 
       <FilterModal
         visible={isFilterModalVisible}

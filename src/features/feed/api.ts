@@ -238,3 +238,27 @@ export const deleteItem = async (id: string, userId: string) => {
 
   if (error) throw error;
 };
+
+export const fetchSimilarItems = async (
+  category: string | undefined,
+  currentId: string,
+): Promise<Item[]> => {
+  // Mock or real fetch
+  const { data } = await supabase
+    .from("items")
+    .select("*")
+    .eq("status", "active")
+    .eq("category", category || "Other")
+    .neq("id", currentId)
+    .limit(5);
+
+  if (!data) return [];
+
+  return data.map((item: any) => ({
+    ...item,
+    location:
+      typeof item.location === "string"
+        ? parseEWKB(item.location)
+        : item.location,
+  })) as Item[];
+};
