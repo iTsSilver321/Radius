@@ -59,8 +59,13 @@ export const fetchItems = async (filters: FeedFilters = {}) => {
       .order("created_at", { ascending: false });
   }
 
-  // Default limit
-  query = query.limit(100);
+  // Pagination
+  const limit = filters.limit || 20;
+  const page = filters.page || 0;
+  const from = page * limit;
+  const to = from + limit - 1;
+
+  query = query.range(from, to);
 
   if (blockedUserIds.length > 0) {
     query = query.not("owner_id", "in", `(${blockedUserIds.join(",")})`);

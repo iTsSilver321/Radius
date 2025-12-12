@@ -13,6 +13,8 @@ export interface FeedFilters {
     northeast: { latitude: number; longitude: number };
     southwest: { latitude: number; longitude: number };
   } | null;
+  page?: number;
+  limit?: number;
 }
 
 export interface Item {

@@ -1,7 +1,6 @@
-import { GlassCard } from "@/src/components/ui/GlassCard"; // Keeping this if it exists, otherwise will remove
 import { GlassView } from "@/components/ui/GlassView";
 import { useAuth } from "@/src/features/auth/store";
-import { fetchItems } from "@/src/features/feed/api";
+import { useFeedItems } from "@/src/features/feed/hooks";
 import { FeedItem } from "@/src/features/feed/components/FeedItem";
 import { FilterModal } from "@/src/features/feed/components/FilterModal";
 import { FeedFilters, Item } from "@/src/features/feed/types";
@@ -19,9 +18,9 @@ import {
   Clock,
   ArrowUpLeft,
 } from "lucide-react-native";
-import { useColorScheme } from "nativewind";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Platform,
   RefreshControl,
   ScrollView,
@@ -40,7 +39,6 @@ export default function FeedScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colorScheme } = useColorScheme();
   const {
     location,
     address,
@@ -48,8 +46,7 @@ export default function FeedScreen() {
     loading: locationLoading,
   } = useLocation();
   const { unreadCount, fetchNotifications } = useNotificationStore();
-  const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
+
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery] = useDebounce(searchQuery, 500);
@@ -57,6 +54,30 @@ export default function FeedScreen() {
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  // React Query Hook
+  const {
+    data,
+    isLoading: loading,
+    isFetchingNextPage: loadingMore,
+    fetchNextPage,
+    hasNextPage: hasMore,
+    refetch,
+  } = useFeedItems({
+    ...filters,
+    searchQuery: debouncedSearchQuery,
+    userLocation: location
+      ? {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        }
+      : undefined,
+  });
+
+  // Flatten pages into a single list
+  const items = useMemo(() => {
+    return data?.pages.flatMap((page) => page) || [];
+  }, [data]);
 
   // Load Recent Searches
   useEffect(() => {
@@ -70,20 +91,26 @@ export default function FeedScreen() {
     })();
   }, []);
 
-  const saveSearchTerm = async (term: string) => {
+  const saveSearchTerm = useCallback(async (term: string) => {
     if (!term.trim()) return;
     const cleanTerm = term.trim();
     // Remove if exists, then add to top
-    const newSearches = [
-      cleanTerm,
-      ...recentSearches.filter((s) => s !== cleanTerm),
-    ].slice(0, 10); // Keep max 10
-    setRecentSearches(newSearches);
-    await AsyncStorage.setItem(
-      RECENT_SEARCHES_KEY,
-      JSON.stringify(newSearches),
-    );
-  };
+    setRecentSearches((prev) => {
+      const newSearches = [
+        cleanTerm,
+        ...prev.filter((s) => s !== cleanTerm),
+      ].slice(0, 10);
+      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(newSearches));
+      return newSearches;
+    });
+  }, []);
+
+  // Save search term when query changes (and is not empty)
+  useEffect(() => {
+    if (debouncedSearchQuery) {
+      saveSearchTerm(debouncedSearchQuery);
+    }
+  }, [debouncedSearchQuery, saveSearchTerm]);
 
   const removeSearchTerm = async (term: string) => {
     const newSearches = recentSearches.filter((s) => s !== term);
@@ -94,50 +121,37 @@ export default function FeedScreen() {
     );
   };
 
-  const loadItems = async () => {
-    try {
-      // If performing a search, save it
-      if (debouncedSearchQuery) {
-        saveSearchTerm(debouncedSearchQuery);
-      }
-
-      const data = await fetchItems({
-        ...filters,
-        searchQuery: debouncedSearchQuery,
-        userLocation: location
-          ? {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            }
-          : undefined,
-      });
-      setItems(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    setLoading(true);
-    loadItems();
-  }, [debouncedSearchQuery, filters, location]); // Re-fetch if location changes and we might be sorting by distance
-
   useFocusEffect(
     useCallback(() => {
-      loadItems();
+      // With React Query, data is cached. We might want to silent refetch if stale.
+      // refetch(); // Optional: force refresh on focus
       if (user) fetchNotifications(user.id);
-    }, [user]),
+    }, [user, fetchNotifications]),
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadItems();
+    await refetch();
     if (user) await fetchNotifications(user.id);
     setRefreshing(false);
   };
+
+  const onEndReached = () => {
+    if (hasMore && !loadingMore) {
+      fetchNextPage();
+    }
+  };
+
+  // Stable press handler for list items
+  const handleItemPress = useCallback(
+    (id: string) => {
+      router.push({
+        pathname: "/item/[id]",
+        params: { id },
+      });
+    },
+    [router],
+  );
 
   // responsive layout calc
   const headerHeight = insets.top + 160;
@@ -156,15 +170,7 @@ export default function FeedScreen() {
           numColumns={2}
           renderItem={({ item }: { item: Item }) => (
             <View className="p-1">
-              <FeedItem
-                item={item}
-                onPress={() =>
-                  router.push({
-                    pathname: "/item/[id]",
-                    params: { id: item.id },
-                  })
-                }
-              />
+              <FeedItem item={item} onPress={handleItemPress} />
             </View>
           )}
           // @ts-ignore
@@ -182,10 +188,21 @@ export default function FeedScreen() {
               tintColor="#3b82f6"
             />
           }
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.5}
           ListEmptyComponent={
             <View className="items-center justify-center py-20">
               <Text className="text-gray-500">No items found.</Text>
             </View>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <View className="py-4 items-center">
+                <ActivityIndicator size="small" color="#3b82f6" />
+              </View>
+            ) : (
+              <View style={{ height: 20 }} />
+            )
           }
         />
       )}
